@@ -30,8 +30,8 @@ app.use(session({
       pruneSessionInterval: 60 * 60 * 24 * 7, // Prune sessions older than 7 days
     }),
     secret: process.env.SESSION_SECRET,
-    resave: true,
-    saveUninitialized: true,
+    resave: false,
+    saveUninitialized: false,
     cookie: {
         maxAge: 1000 * 60 * 60 * 24 * 7,  // one week
         httpOnly: true, 
@@ -39,6 +39,8 @@ app.use(session({
         sameSite: 'none'
     }
 }));
+app.set("trust proxy", 1); // for production
+
 app.use(express.urlencoded({extended : false}));
 app.use(express.json());
 app.use(passport.initialize());
