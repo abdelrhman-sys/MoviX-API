@@ -30,10 +30,13 @@ app.use(session({
       pruneSessionInterval: 60 * 60 * 24 * 7, // Prune sessions older than 7 days
     }),
     secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
+    resave: true,
+    saveUninitialized: true,
     cookie: {
-        maxAge: 1000 * 24 * 60 * 60 * 7  // one week
+        maxAge: 1000 * 60 * 60 * 24 * 7,  // one week
+        httpOnly: true, 
+        secure: true,
+        sameSite: 'none'
     }
 }));
 app.use(express.urlencoded({extended : false}));
