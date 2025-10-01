@@ -17,9 +17,13 @@ const PgSession = connectPgSimple(session);
 const db = new pg.Pool({
     connectionString: process.env.SUPABASE_DB_URL
 });
+const frontDomain = "https://movix-web-six.vercel.app";
+// const frontDomain = "http://localhost:5173";
+const backDomain = "https://movi-x-api.vercel.app";
+// const backDomain = "http://localhost:3000";
 
 app.use(cors({
-  origin: "https://movix-web-six.vercel.app",
+  origin: frontDomain,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   credentials: true  // for cookies / sessions
 }));
@@ -35,8 +39,8 @@ app.use(session({
     cookie: {
         maxAge: 1000 * 60 * 60 * 24 * 7,  // one week
         httpOnly: true, 
-        secure: true,
-        sameSite: 'none'
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     }
 }));
 app.set("trust proxy", 1); // for production
@@ -208,11 +212,15 @@ app.post("/api/local/user", (req, res)=> {
         if (!user) return res.status(401).send( "Invalid credentials" );
 
         req.login(user, async (err) => {
-        if (err) return res.status(500).send( err );
-        const {password, ...safeUser} = req.user;
-        const fav = await db.query(`SELECT show_id, show_type, show_poster, show_name FROM fav_shows WHERE user_id =$1`, [safeUser.user_id]);
-        const later = await db.query(`SELECT show_id, show_type, show_poster, show_name FROM later_shows WHERE user_id =$1`, [safeUser.user_id]);
-        return res.json({ user: safeUser, favShows: fav.rows, laterShows: later.rows });
+            if (err) return res.status(500).send( err );
+            const {password, ...safeUser} = req.user;
+            try {
+                const fav = await db.query(`SELECT show_id, show_type, show_poster, show_name FROM fav_shows WHERE user_id =$1`, [safeUser.user_id]);
+                const later = await db.query(`SELECT show_id, show_type, show_poster, show_name FROM later_shows WHERE user_id =$1`, [safeUser.user_id]);
+                return res.json({ user: safeUser, favShows: fav.rows, laterShows: later.rows });
+            } catch (error) {
+                return res.status(400).send( error );
+            }
         });
     })(req, res);
 });
@@ -221,9 +229,7 @@ app.get("/api/google/user", passport.authenticate("google", {
     scope: ["profile", "email"]
 }));  
 
-app.get("/api/google/callback", passport.authenticate("google", { failureMessage: "User not authenticated"}), (req, res) => {
-    res.redirect("http://localhost:5173");
-});
+app.get("/api/google/callback", passport.authenticate("google", {successRedirect: frontDomain, failureMessage: "User not authenticated"}));
 
 app.get("/api/logout", (req, res)=> {
     if (req.isAuthenticated()) {
@@ -264,7 +270,7 @@ passport.use("google",
   new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "http://localhost:3000/api/google/callback",
+    callbackURL: `${backDomain}/api/google/callback`,
     userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
   }, async (accessToken, refreshToken, profile, cb)=> {
     try {
